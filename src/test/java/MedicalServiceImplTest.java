@@ -1,9 +1,7 @@
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
 import org.mockito.Mockito;
 import ru.netology.patient.entity.BloodPressure;
 import ru.netology.patient.entity.HealthInfo;
@@ -14,64 +12,52 @@ import ru.netology.patient.service.medical.MedicalService;
 import ru.netology.patient.service.medical.MedicalServiceImpl;
 
 import java.math.BigDecimal;
-import java.util.stream.Stream;
+import java.time.LocalDate;
+
+import static org.mockito.Mockito.spy;
 
 public class MedicalServiceImplTest {
 
-//    @Mock
-//    PatientInfoRepository patientInfoRepository;
-//    SendAlertService sendAlertService;
-//    PatientInfo patientInfo;
-//    HealthInfo healthInfo;
-
     PatientInfoRepository patientInfoRepository = Mockito.mock(PatientInfoRepository.class);
     SendAlertService sendAlertService = Mockito.mock(SendAlertService.class);
-    PatientInfo patientInfo = Mockito.mock(PatientInfo.class);
-    HealthInfo healthInfo = Mockito.mock(HealthInfo.class);
     MedicalService medicalService = new MedicalServiceImpl(patientInfoRepository, sendAlertService);
     ArgumentCaptor<String> argumentCaptor = ArgumentCaptor.forClass(String.class);
+    String id1 = "1";
+    PatientInfo patientInfo1 = spy(new PatientInfo("Иван", "Петров", LocalDate.of(1980, 11, 26),
+            new HealthInfo(new BigDecimal("36.65"), new BloodPressure(120, 60))));
+    String id2 = "2";
+    PatientInfo patientInfo2 = spy(new PatientInfo("Семен", "Михайлов", LocalDate.of(1982, 1, 16),
+            new HealthInfo(new BigDecimal("40"), new BloodPressure(125, 78))));
 
-    public static Stream<Arguments> sourceAdd() {
-        return Stream.of(Arguments.of("1111", new BigDecimal(36), new BloodPressure(120, 60)),
-                Arguments.of("2222", new BigDecimal(40), new BloodPressure(110, 60)));
+    @BeforeEach
+    void setMocksProperties() {
+        Mockito.when(patientInfoRepository.getById(id1)).thenReturn(patientInfo1);
+        Mockito.when(patientInfoRepository.getById(id2)).thenReturn(patientInfo2);
+        Mockito.when(patientInfo1.getId()).thenReturn(id1);
+        Mockito.when(patientInfo2.getId()).thenReturn(id2);
     }
 
-    @ParameterizedTest
-    @MethodSource("sourceAdd")
-    public void testCheckTemperature(String id, BigDecimal normalTemperature) {
-        String expectedMassage = "Warning, patient with id: " + id + ", need help";
-        Mockito.when(patientInfoRepository.getById(id)).thenReturn(patientInfo);
-        Mockito.when(patientInfo.getHealthInfo()).thenReturn(healthInfo);
-        Mockito.when(healthInfo.getNormalTemperature()).thenReturn(normalTemperature);
+    @Test
+    public void checkMassageByTemperature() {
+        //сообщение не должно отправляться для пациента 1, но должно быть отправлено для пациента 2
         BigDecimal extremalTemperature = new BigDecimal(38);
-        Mockito.when(patientInfo.getId()).thenReturn(id);
 
-        medicalService.checkTemperature(id, extremalTemperature);
-        if (normalTemperature.compareTo(extremalTemperature) < 1) {
-            Mockito.verify(sendAlertService, Mockito.never()).send(Mockito.anyString());
-        } else {
-            Mockito.verify(sendAlertService).send(argumentCaptor.capture());
-            Assertions.assertEquals(expectedMassage, argumentCaptor.getValue());
-        }
+        medicalService.checkTemperature(id1, extremalTemperature);
+        medicalService.checkTemperature(id2, extremalTemperature);
+
+        Mockito.verify(sendAlertService, Mockito.only()).send(argumentCaptor.capture());
+        Assertions.assertTrue(argumentCaptor.getValue().contains(id2));
     }
 
-    @ParameterizedTest
-    @MethodSource("sourceAdd")
-    public void testCheckBloodPressure(String id, BigDecimal bigDecimal, BloodPressure bloodPressure) {
-        String expectedMassage = "Warning, patient with id: " + id + ", need help";
-        BloodPressure etalonBloodPressure = new BloodPressure(120, 60);
-        Mockito.when(patientInfoRepository.getById(id)).thenReturn(patientInfo);
-        Mockito.when(patientInfo.getHealthInfo()).thenReturn(healthInfo);
-        Mockito.when(healthInfo.getBloodPressure()).thenReturn(bloodPressure);
-        Mockito.when(patientInfo.getId()).thenReturn(id);
+    @Test
+    public void checkMassageByBloodPressure() {
+        //сообщение не должно отправляться для пациента 1, но должно быть отправлено для пациента 2
+        BloodPressure normalBloodPressure = new BloodPressure(120, 60);
 
-        medicalService.checkBloodPressure(id, etalonBloodPressure);
+        medicalService.checkBloodPressure(id1, normalBloodPressure);
+        medicalService.checkBloodPressure(id2, normalBloodPressure);
 
-        if (bloodPressure.equals(etalonBloodPressure)) {
-            Mockito.verify(sendAlertService, Mockito.never()).send(Mockito.anyString());
-        } else {
-            Mockito.verify(sendAlertService).send(argumentCaptor.capture());
-            Assertions.assertEquals(expectedMassage, argumentCaptor.getValue());
-        }
+        Mockito.verify(sendAlertService, Mockito.only()).send(argumentCaptor.capture());
+        Assertions.assertTrue(argumentCaptor.getValue().contains(id2));
     }
 }
