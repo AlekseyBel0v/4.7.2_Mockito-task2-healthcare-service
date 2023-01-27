@@ -1,5 +1,4 @@
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
@@ -22,42 +21,48 @@ public class MedicalServiceImplTest {
     SendAlertService sendAlertService = Mockito.mock(SendAlertService.class);
     MedicalService medicalService = new MedicalServiceImpl(patientInfoRepository, sendAlertService);
     ArgumentCaptor<String> argumentCaptor = ArgumentCaptor.forClass(String.class);
-    String id1 = "1";
-    PatientInfo patientInfo1 = spy(new PatientInfo("Иван", "Петров", LocalDate.of(1980, 11, 26),
-            new HealthInfo(new BigDecimal("36.65"), new BloodPressure(120, 60))));
-    String id2 = "2";
-    PatientInfo patientInfo2 = spy(new PatientInfo("Семен", "Михайлов", LocalDate.of(1982, 1, 16),
-            new HealthInfo(new BigDecimal("40"), new BloodPressure(125, 78))));
-
-    @BeforeEach
-    void setMocksProperties() {
-        Mockito.when(patientInfoRepository.getById(id1)).thenReturn(patientInfo1);
-        Mockito.when(patientInfoRepository.getById(id2)).thenReturn(patientInfo2);
-        Mockito.when(patientInfo1.getId()).thenReturn(id1);
-        Mockito.when(patientInfo2.getId()).thenReturn(id2);
-    }
 
     @Test
-    public void checkMassageByTemperature() {
-        //сообщение не должно отправляться для пациента 1, но должно быть отправлено для пациента 2
+    public void checkMassageByExtremeTemperature() {
+        String id = "1";
+        PatientInfo patientInfo = spy(new PatientInfo("Семен", "Михайлов", LocalDate.of(1982, 1, 16),
+                new HealthInfo(new BigDecimal("40"), new BloodPressure(125, 78))));
+        Mockito.when(patientInfoRepository.getById(id)).thenReturn(patientInfo);
+        Mockito.when(patientInfo.getId()).thenReturn(id);
         BigDecimal extremalTemperature = new BigDecimal(38);
 
-        medicalService.checkTemperature(id1, extremalTemperature);
-        medicalService.checkTemperature(id2, extremalTemperature);
+        medicalService.checkTemperature(id, extremalTemperature);
 
         Mockito.verify(sendAlertService, Mockito.only()).send(argumentCaptor.capture());
-        Assertions.assertTrue(argumentCaptor.getValue().contains(id2));
+        Assertions.assertTrue(argumentCaptor.getValue().contains(id));
     }
 
     @Test
-    public void checkMassageByBloodPressure() {
-        //сообщение не должно отправляться для пациента 1, но должно быть отправлено для пациента 2
+    public void checkMassageByExtremeBloodPressure() {
+        String id = "1";
+        PatientInfo patientInfo = spy(new PatientInfo("Семен", "Михайлов", LocalDate.of(1982, 1, 16),
+                new HealthInfo(new BigDecimal("40"), new BloodPressure(125, 78))));
         BloodPressure normalBloodPressure = new BloodPressure(120, 60);
+        Mockito.when(patientInfoRepository.getById(id)).thenReturn(patientInfo);
+        Mockito.when(patientInfo.getId()).thenReturn(id);
 
-        medicalService.checkBloodPressure(id1, normalBloodPressure);
-        medicalService.checkBloodPressure(id2, normalBloodPressure);
+        medicalService.checkBloodPressure(id, normalBloodPressure);
 
         Mockito.verify(sendAlertService, Mockito.only()).send(argumentCaptor.capture());
-        Assertions.assertTrue(argumentCaptor.getValue().contains(id2));
+        Assertions.assertTrue(argumentCaptor.getValue().contains(id));
+    }
+
+    @Test
+    public void checkMassageByNormalBloodPressureAndTemperature() {
+        PatientInfo patientInfo = new PatientInfo("Иван", "Петров", LocalDate.of(1980, 11, 26),
+                new HealthInfo(new BigDecimal("36.65"), new BloodPressure(120, 60)));
+        Mockito.when(patientInfoRepository.getById(Mockito.anyString())).thenReturn(patientInfo);
+        BloodPressure normalBloodPressure = new BloodPressure(120, 60);
+        BigDecimal extremalTemperature = new BigDecimal(38);
+
+        medicalService.checkBloodPressure(Mockito.anyString(), normalBloodPressure);
+        medicalService.checkTemperature(Mockito.anyString(), extremalTemperature);
+
+        Mockito.verify(sendAlertService, Mockito.times(0)).send(Mockito.anyString());
     }
 }
